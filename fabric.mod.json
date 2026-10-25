@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "id": "packmixer",
+  "version": "${version}",
+  "name": "Pack Mixer",
+  "description": "Łączy wiele texturepacków w jeden: wybierasz osobno źródło każdego bloku, przedmiotu, moba i elementu GUI. Wymaga licencji.",
+  "authors": ["Pack Mixer"],
+  "license": "All Rights Reserved",
+  "environment": "client",
+  "entrypoints": {
+    "client": ["pl.packmixer.PackMixerClient"]
+  },
+  "mixins": [
+    {
+      "config": "packmixer.mixins.json",
+      "environment": "client"
+    }
+  ],
+  "depends": {
+    "fabricloader": ">=0.16.10",
+    "minecraft": "~1.21.4",
+    "java": ">=21",
+    "fabric-api": "*"
+  }
+}
