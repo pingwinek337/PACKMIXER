@@ -1,0 +1,3 @@
+# Unieważnione licencje: jeden numer seryjny (serial) w linii.
+# Numery seryjne znajdziesz w issued.csv w folderze z generatorem.
+# Po dopisaniu numeru przebuduj moda i rozdaj nowy jar.

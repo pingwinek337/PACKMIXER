@@ -27,7 +27,7 @@ public final class LicenseCodec {
 
     public record License(String serial, String machine, long expiresEpochDay, String owner) {}
 
-    public enum Status { OK, BAD_FORMAT, BAD_SIGNATURE, WRONG_MACHINE, EXPIRED }
+    public enum Status { OK, BAD_FORMAT, BAD_SIGNATURE, WRONG_MACHINE, EXPIRED, REVOKED }
 
     public record Result(Status status, License license) {
         public boolean ok() {
@@ -74,7 +74,9 @@ public final class LicenseCodec {
         }
         License lic = new License(f.getOrDefault("serial", ""), f.getOrDefault("machine", ""), exp, f.getOrDefault("owner", ""));
 
-        if (!normalize(machineId).equals(normalize(lic.machine()))) return new Result(Status.WRONG_MACHINE, lic);
+        // machine=ANY oznacza licencję niezależną od komputera
+        boolean anyMachine = "ANY".equalsIgnoreCase(lic.machine().trim());
+        if (!anyMachine && !normalize(machineId).equals(normalize(lic.machine()))) return new Result(Status.WRONG_MACHINE, lic);
         if (lic.expiresEpochDay() != 0 && todayEpochDay > lic.expiresEpochDay()) return new Result(Status.EXPIRED, lic);
         return new Result(Status.OK, lic);
     }

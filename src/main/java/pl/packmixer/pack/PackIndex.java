@@ -20,17 +20,24 @@ import java.util.TreeMap;
 public final class PackIndex implements AutoCloseable {
 
     public enum Category {
-        BLOCKS("textures/block", "Bloki"),
-        ITEMS("textures/item", "Przedmioty"),
-        ENTITIES("textures/entity", "Moby"),
-        GUI("textures/gui", "GUI");
+        BLOCKS("Bloki", "textures/block"),
+        ITEMS("Przedmioty", "textures/item"),
+        ENTITIES("Moby", "textures/entity"),
+        GUI("GUI", "textures/gui"),
+        // tekstury znaków (ascii.png itd.) oraz definicje czcionek font/*.json
+        FONTS("Czcionki", "textures/font", "font");
 
-        public final String prefix;
         public final String label;
+        public final String[] prefixes;
 
-        Category(String prefix, String label) {
-            this.prefix = prefix;
+        Category(String label, String... prefixes) {
             this.label = label;
+            this.prefixes = prefixes;
+        }
+
+        /** PNG-i zawsze; pliki .json tylko z folderu font/. */
+        public boolean accepts(String path) {
+            return path.endsWith(".png") || (path.startsWith("font/") && path.endsWith(".json"));
         }
     }
 
@@ -91,14 +98,16 @@ public final class PackIndex implements AutoCloseable {
                 for (String ns : s.pack.getNamespaces(ResourceType.CLIENT_RESOURCES)) {
                     for (Category c : Category.values()) {
                         TreeMap<String, List<String>> map = out.get(c);
-                        s.pack.findResources(ResourceType.CLIENT_RESOURCES, ns, c.prefix, (id, supplier) -> {
-                            if (!id.getPath().endsWith(".png")) return;
-                            List<String> list = map.computeIfAbsent(id.toString(), k -> new ArrayList<>());
-                            if (!list.contains(s.id)) {
-                                list.add(s.id);
-                                s.counts[c.ordinal()]++;
-                            }
-                        });
+                        for (String prefix : c.prefixes) {
+                            s.pack.findResources(ResourceType.CLIENT_RESOURCES, ns, prefix, (id, supplier) -> {
+                                if (!c.accepts(id.getPath())) return;
+                                List<String> list = map.computeIfAbsent(id.toString(), k -> new ArrayList<>());
+                                if (!list.contains(s.id)) {
+                                    list.add(s.id);
+                                    s.counts[c.ordinal()]++;
+                                }
+                            });
+                        }
                     }
                 }
             } catch (Exception ignored) {
@@ -133,7 +142,9 @@ public final class PackIndex implements AutoCloseable {
     }
 
     public static Category categoryOf(String key) {
-        for (Category c : Category.values()) if (key.contains(":" + c.prefix + "/")) return c;
+        for (Category c : Category.values()) {
+            for (String prefix : c.prefixes) if (key.contains(":" + prefix + "/")) return c;
+        }
         return Category.BLOCKS;
     }
 

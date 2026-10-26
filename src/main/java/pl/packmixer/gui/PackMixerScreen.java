@@ -27,7 +27,8 @@ public class PackMixerScreen extends Screen {
         BLOCKS("Bloki", Category.BLOCKS),
         ITEMS("Przedmioty", Category.ITEMS),
         ENTITIES("Moby", Category.ENTITIES),
-        GUI("GUI", Category.GUI);
+        GUI("GUI", Category.GUI),
+        FONTS("Czcionki", Category.FONTS);
 
         final String label;
         final Category cat;
@@ -181,8 +182,9 @@ public class PackMixerScreen extends Screen {
         String path = key.substring(colon + 1);
         int slash = path.indexOf('/');
         int slash2 = slash < 0 ? -1 : path.indexOf('/', slash + 1);
-        String name = slash2 < 0 ? path : path.substring(slash2 + 1);
+        String name = slash2 >= 0 ? path.substring(slash2 + 1) : slash >= 0 ? path.substring(slash + 1) : path;
         if (name.endsWith(".png")) name = name.substring(0, name.length() - 4);
+        else if (name.endsWith(".json")) name = name.substring(0, name.length() - 5) + " (definicja)";
         return ns.equals("minecraft") ? name : ns + ":" + name;
     }
 
@@ -343,7 +345,7 @@ public class PackMixerScreen extends Screen {
 
         int used = 0;
         for (String v : work.values()) if (v.equals(s.id)) used++;
-        String stats = "Bloki " + s.counts[0] + "   Przedm. " + s.counts[1] + "   Moby " + s.counts[2] + "   GUI " + s.counts[3];
+        String stats = "Bloki " + s.counts[0] + "   Przedm. " + s.counts[1] + "   Moby " + s.counts[2] + "   GUI " + s.counts[3] + "   Czcionki " + s.counts[4];
         ctx.drawText(textRenderer, textRenderer.trimToWidth(stats, textW), tx, y + 36, 0xFF6E7C9C, false);
         if (used > 0) {
             ctx.drawText(textRenderer, "W miksie: " + used, tx, y + 46, Ui.GOOD, false);
@@ -514,13 +516,16 @@ public class PackMixerScreen extends Screen {
         Ui.checker(ctx, tx, y + 12, 64);
         TexCache.Thumb th = src == null ? null : tex.thumb(src, key);
         Ui.drawThumb(ctx, th, tx, y + 12, 64);
+        if (th == null && key.endsWith(".json")) {
+            ctx.drawCenteredTextWithShadow(textRenderer, "{ }", tx + 32, y + 12 + 28, Ui.MUTED);
+        }
 
         String name = auto ? "Auto" : src != null ? src.displayName() : packId;
         int color = auto ? Ui.MUTED : Ui.packColor(packId);
         String trimmed = textRenderer.trimToWidth(name, w - 12);
         ctx.drawText(textRenderer, trimmed, x + (w - textRenderer.getWidth(trimmed)) / 2, y + 84, color, false);
 
-        String sub = auto ? "kolejność packów" : th != null ? th.w() + "x" + th.h() : "";
+        String sub = auto ? "kolejność packów" : th != null ? th.w() + "x" + th.h() : key.endsWith(".json") ? "definicja czcionki" : "";
         ctx.drawText(textRenderer, sub, x + (w - textRenderer.getWidth(sub)) / 2, y + 96, 0xFF5E6985, false);
 
         if (chosen) {

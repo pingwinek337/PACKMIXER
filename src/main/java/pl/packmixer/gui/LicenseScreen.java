@@ -69,7 +69,7 @@ public class LicenseScreen extends Screen {
         ctx.drawText(textRenderer, "Wpisz klucz licencyjny, aby odblokować moda.", ix, cy + 54, Ui.MUTED, false);
 
         // ID urządzenia
-        ctx.drawText(textRenderer, "ID tego urządzenia (podaj je przy zakupie licencji):", ix, cy + 76, Ui.MUTED, false);
+        ctx.drawText(textRenderer, "ID tego urządzenia (potrzebne tylko do licencji na jedno urządzenie):", ix, cy + 76, Ui.MUTED, false);
         String id = LicenseManager.machineId();
         Ui.round(ctx, ix, cy + 88, iw - 74, 20, Ui.CARD);
         ctx.drawText(textRenderer, id, ix + 8, cy + 94, Ui.GOOD, false);
@@ -96,7 +96,7 @@ public class LicenseScreen extends Screen {
         if (!message.isEmpty()) {
             ctx.drawText(textRenderer, textRenderer.trimToWidth(message, iw), ix, cy + 192, messageColor, false);
         }
-        ctx.drawText(textRenderer, "Licencja jest jednorazowa i przypisana do tego urządzenia.", ix, cy + 206, 0xFF5E6985, false);
+        ctx.drawText(textRenderer, "Klucz zapisuje się w config/packmixer/license.key i wystarczy go wpisać raz.", ix, cy + 206, 0xFF5E6985, false);
 
         super.render(ctx, mouseX, mouseY, delta);
     }
@@ -112,6 +112,7 @@ public class LicenseScreen extends Screen {
             case BAD_SIGNATURE -> setMessage("Klucz jest nieprawdziwy.", Ui.DANGER);
             case WRONG_MACHINE -> setMessage("Ten klucz został wystawiony dla innego urządzenia.", Ui.DANGER);
             case EXPIRED -> setMessage("Licencja wygasła.", Ui.DANGER);
+            case REVOKED -> setMessage("Ta licencja została unieważniona.", Ui.DANGER);
         }
     }
 
