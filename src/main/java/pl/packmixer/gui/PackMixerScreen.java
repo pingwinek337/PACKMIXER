@@ -54,6 +54,13 @@ public class PackMixerScreen extends Screen {
     private int seenVersion = -1;
     private int bulkIdx = 0;
 
+    // wartości liczone raz na klatkę / po kliknięciu, a nie dla każdego wiersza w każdej klatce
+    private java.util.Collection<String> enabledIds = List.of();
+    private final int[] tabCounts = new int[Tab.values().length];
+    private final Map<String, Integer> packUse = new java.util.HashMap<>();
+    private boolean statsDirty = true;
+    private boolean unsaved;
+
     private final Ui.SmoothScroll packScroll = new Ui.SmoothScroll();
     private final Ui.SmoothScroll listScroll = new Ui.SmoothScroll();
     private final Ui.SmoothScroll detailScroll = new Ui.SmoothScroll();
@@ -71,7 +78,7 @@ public class PackMixerScreen extends Screen {
     public PackMixerScreen(Screen parent) {
         super(Text.literal("Pack Mixer"));
         this.parent = parent;
-        this.index = new PackIndex(net.minecraft.client.MinecraftClient.getInstance().getResourcePackManager());
+        this.index = PackIndex.obtain(net.minecraft.client.MinecraftClient.getInstance().getResourcePackManager());
     }
 
     // ------------------------------------------------------------------ init / lifecycle
@@ -166,14 +173,24 @@ public class PackMixerScreen extends Screen {
     }
 
     private boolean dirty() {
-        return !work.equals(MixConfig.get().overrides);
+        return unsaved;
     }
 
     private int countOverrides(Tab t) {
-        if (t.cat == null) return work.size();
-        int n = 0;
-        for (String k : work.keySet()) if (PackIndex.categoryOf(k) == t.cat) n++;
-        return n;
+        return tabCounts[t.ordinal()];
+    }
+
+    /** Przelicza liczniki zakładek, użycie packów i flagę "niezastosowane zmiany". */
+    private void recomputeStats() {
+        java.util.Arrays.fill(tabCounts, 0);
+        packUse.clear();
+        tabCounts[Tab.PACKS.ordinal()] = work.size();
+        for (Map.Entry<String, String> e : work.entrySet()) {
+            Category c = PackIndex.categoryOf(e.getKey());
+            for (Tab t : Tab.values()) if (t.cat == c) tabCounts[t.ordinal()]++;
+            packUse.merge(e.getValue(), 1, Integer::sum);
+        }
+        unsaved = !work.equals(MixConfig.get().overrides);
     }
 
     private static String shortName(String key) {
@@ -194,7 +211,7 @@ public class PackMixerScreen extends Screen {
             Source s = index.byId(ov);
             if (s != null) return s;
         }
-        return index.autoSource(key, client.getResourcePackManager().getEnabledIds());
+        return index.autoSource(key, enabledIds);
     }
 
     private void switchTab(Tab t) {
@@ -236,6 +253,11 @@ public class PackMixerScreen extends Screen {
         clipBottom = height;
         layout();
         tex.beginFrame();
+        enabledIds = client.getResourcePackManager().getEnabledIds();
+        if (statsDirty) {
+            recomputeStats();
+            statsDirty = false;
+        }
         if (index.version != seenVersion) {
             seenVersion = index.version;
             refilter();
@@ -343,8 +365,7 @@ public class PackMixerScreen extends Screen {
         String desc = s.description.getString().replace('\n', ' ');
         ctx.drawText(textRenderer, textRenderer.trimToWidth(desc, textW), tx, y + 22, Ui.MUTED, false);
 
-        int used = 0;
-        for (String v : work.values()) if (v.equals(s.id)) used++;
+        int used = packUse.getOrDefault(s.id, 0);
         String stats = "Bloki " + s.counts[0] + "   Przedm. " + s.counts[1] + "   Moby " + s.counts[2] + "   GUI " + s.counts[3] + "   Czcionki " + s.counts[4];
         ctx.drawText(textRenderer, textRenderer.trimToWidth(stats, textW), tx, y + 36, 0xFF6E7C9C, false);
         if (used > 0) {
@@ -506,7 +527,7 @@ public class PackMixerScreen extends Screen {
         Source src = auto ? effective(key) : index.byId(packId);
         if (auto && work.containsKey(key)) {
             // karta "Auto" pokazuje, co byłoby bez miksu
-            src = index.autoSource(key, client.getResourcePackManager().getEnabledIds());
+            src = index.autoSource(key, enabledIds);
         }
 
         if (chosen) Ui.outlined(ctx, x, y, w, h, hov ? Ui.CARD_HOVER : Ui.CARD, Ui.ACCENT);
@@ -591,7 +612,7 @@ public class PackMixerScreen extends Screen {
         int by = fy + 8;
         int bx = R;
         bx -= 170;
-        button(ctx, bx, by, 170, 22, "Zastosuj i przeładuj", Ui.ACCENT, true, "Zapisuje miks i przeładowuje zasoby", this::apply);
+        button(ctx, bx, by, 170, 22, "Zastosuj i przeładuj", Ui.ACCENT, true, "Przeładowanie zasobów chwilę zamraża grę (na serwerze podbija ping) - najlepiej w menu głównym", this::apply);
         bx -= 8 + 126;
         button(ctx, bx, by, 126, 22, "Wyczyść wszystko", Ui.DANGER, !work.isEmpty(), "Usuwa wszystkie wybory (do czasu zastosowania)", () -> {
             work.clear();
@@ -629,6 +650,7 @@ public class PackMixerScreen extends Screen {
                 Hit h = hits.get(i);
                 if (Ui.in(x, y, h.x(), h.y(), h.w(), h.h())) {
                     h.action().run();
+                    statsDirty = true;
                     return true;
                 }
             }

@@ -10,6 +10,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import pl.packmixer.config.MixConfig;
 import pl.packmixer.license.LicenseManager;
 import pl.packmixer.pack.MixerResourcePack;
+import pl.packmixer.pack.PackIndex;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -21,6 +22,7 @@ public abstract class ResourcePackManagerMixin {
     private void packmixer$addMixer(CallbackInfoReturnable<List<ResourcePack>> cir) {
         MinecraftClient mc = MinecraftClient.getInstance();
         if (mc == null || mc.getResourcePackManager() != (Object) this) return;
+        PackIndex.invalidate();
         if (!LicenseManager.isLicensed()) return;
 
         MixConfig cfg = MixConfig.get();

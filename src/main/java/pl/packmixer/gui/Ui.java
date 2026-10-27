@@ -59,7 +59,7 @@ public final class Ui {
     /** Szachownica pod miniaturą, żeby było widać przezroczystość. */
     public static void checker(DrawContext c, int x, int y, int size) {
         c.fill(x, y, x + size, y + size, 0xFF1B2030);
-        int cell = Math.max(4, size / 8);
+        int cell = Math.max(8, size / 4);
         int light = 0xFF252C40;
         for (int cy = 0; cy * cell < size; cy++) {
             for (int cx = 0; cx * cell < size; cx++) {

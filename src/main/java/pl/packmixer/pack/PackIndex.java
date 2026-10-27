@@ -45,7 +45,7 @@ public final class PackIndex implements AutoCloseable {
         public final String id;
         public final Text name;
         public final Text description;
-        public final ResourcePack pack;
+        public volatile ResourcePack pack;
         public final boolean vanilla;
         public final int[] counts = new int[Category.values().length];
 
@@ -85,7 +85,47 @@ public final class PackIndex implements AutoCloseable {
         }
         Thread t = new Thread(this::scan, "PackMixer-Scan");
         t.setDaemon(true);
+        t.setPriority(Thread.MIN_PRIORITY);
         t.start();
+    }
+
+    // ---- cache: wynik skanu żyje do następnego przeładowania zasobów, więc ponowne otwarcie GUI jest od razu gotowe ----
+    private static PackIndex cached;
+    private static String cachedSig = "";
+
+    public static synchronized PackIndex obtain(ResourcePackManager manager) {
+        String sig = signature(manager);
+        if (cached != null && cached.done && cachedSig.equals(sig)) {
+            cached.reopen(manager);
+            return cached;
+        }
+        if (cached != null) cached.close();
+        cached = new PackIndex(manager);
+        cachedSig = sig;
+        return cached;
+    }
+
+    /** Wołane przy każdym przeładowaniu zasobów: następne otwarcie GUI przeskanuje packi od nowa. */
+    public static synchronized void invalidate() {
+        cachedSig = "";
+    }
+
+    private static String signature(ResourcePackManager manager) {
+        List<String> ids = new ArrayList<>();
+        for (ResourcePackProfile p : manager.getProfiles()) ids.add(p.getId());
+        Collections.sort(ids);
+        return String.join("|", ids);
+    }
+
+    private void reopen(ResourcePackManager manager) {
+        closed = false;
+        for (Source s : sources) {
+            try {
+                ResourcePackProfile p = manager.getProfile(s.id);
+                if (p != null) s.pack = p.createResourcePack();
+            } catch (Exception ignored) {
+            }
+        }
     }
 
     private void scan() {

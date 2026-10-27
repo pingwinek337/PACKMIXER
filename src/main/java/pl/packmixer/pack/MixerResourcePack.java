@@ -20,23 +20,34 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.TreeMap;
 
 /**
  * Wirtualny pack o najwyższym priorytecie. Dla tekstur z miksu oddaje plik z wybranego packa,
  * dla całej reszty nic nie zwraca, więc działa normalna kolejność packów.
+ *
+ * Wybory są zindeksowane po przestrzeni nazw (TreeMap po ścieżce), więc wyszukiwanie zasobów
+ * podczas przeładowania nie przechodzi za każdym razem po całej liście.
  */
 public final class MixerResourcePack implements ResourcePack {
     private static final byte[] EMPTY_META = "{}".getBytes(StandardCharsets.UTF_8);
+    private static final int MCMETA = ".mcmeta".length();
 
     private final ResourcePackManager manager;
-    private final Map<String, String> overrides;
+    private final Map<String, TreeMap<String, String>> byNamespace = new HashMap<>();
     private final Map<String, ResourcePack> opened = new HashMap<>();
     private final ResourcePackInfo info = new ResourcePackInfo(
             "packmixer_mix", Text.literal("Pack Mixer"), ResourcePackSource.NONE, Optional.empty());
 
     public MixerResourcePack(ResourcePackManager manager, Map<String, String> overrides) {
         this.manager = manager;
-        this.overrides = overrides;
+        for (Map.Entry<String, String> e : overrides.entrySet()) {
+            String key = e.getKey();
+            int colon = key.indexOf(':');
+            if (colon <= 0) continue;
+            byNamespace.computeIfAbsent(key.substring(0, colon), k -> new TreeMap<>())
+                    .put(key.substring(colon + 1), e.getValue());
+        }
     }
 
     private synchronized @Nullable ResourcePack source(String packId) {
@@ -57,10 +68,12 @@ public final class MixerResourcePack implements ResourcePack {
     @Override
     public @Nullable InputSupplier<InputStream> open(ResourceType type, Identifier id) {
         if (type != ResourceType.CLIENT_RESOURCES) return null;
+        TreeMap<String, String> map = byNamespace.get(id.getNamespace());
+        if (map == null) return null;
         String path = id.getPath();
         boolean meta = path.endsWith(".mcmeta");
-        String basePath = meta ? path.substring(0, path.length() - ".mcmeta".length()) : path;
-        String packId = overrides.get(id.getNamespace() + ":" + basePath);
+        String basePath = meta ? path.substring(0, path.length() - MCMETA) : path;
+        String packId = map.get(basePath);
         if (packId == null) return null;
         ResourcePack src = source(packId);
         if (src == null) return null;
@@ -77,23 +90,22 @@ public final class MixerResourcePack implements ResourcePack {
     @Override
     public void findResources(ResourceType type, String namespace, String prefix, ResultConsumer consumer) {
         if (type != ResourceType.CLIENT_RESOURCES) return;
-        for (String key : overrides.keySet()) {
-            Identifier id = Identifier.tryParse(key);
-            if (id == null || !id.getNamespace().equals(namespace) || !id.getPath().startsWith(prefix)) continue;
-            InputSupplier<InputStream> png = open(type, id);
-            if (png != null) consumer.accept(id, png);
+        TreeMap<String, String> map = byNamespace.get(namespace);
+        if (map == null) return;
+        for (Map.Entry<String, String> e : map.tailMap(prefix, true).entrySet()) {
+            String path = e.getKey();
+            if (!path.startsWith(prefix)) break; // klucze posortowane: koniec zakresu
+            Identifier id = Identifier.tryParse(namespace + ":" + path);
+            if (id == null) continue;
+            InputSupplier<InputStream> supplier = open(type, id);
+            if (supplier != null) consumer.accept(id, supplier);
         }
     }
 
     @Override
     public Set<String> getNamespaces(ResourceType type) {
-        Set<String> out = new HashSet<>();
-        if (type != ResourceType.CLIENT_RESOURCES) return out;
-        for (String key : overrides.keySet()) {
-            int colon = key.indexOf(':');
-            if (colon > 0) out.add(key.substring(0, colon));
-        }
-        return out;
+        if (type != ResourceType.CLIENT_RESOURCES) return new HashSet<>();
+        return new HashSet<>(byNamespace.keySet());
     }
 
     @Override
