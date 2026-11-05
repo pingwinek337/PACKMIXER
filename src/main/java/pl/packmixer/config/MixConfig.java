@@ -13,21 +13,27 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
- * Zapisany miks: klucz "namespace:ścieżka/tekstury.png" -> id packa, z którego ma pochodzić ta tekstura.
- * Przykład: "minecraft:textures/block/obsidian.png" -> "file/MojPack.zip"
+ * Zapisany miks: klucz "namespace:ścieżka" -> id packa, z którego ma pochodzić ten plik.
+ * overrides = wybory użytkownika (tekstury), derived = pliki towarzyszące (modele, definicje przedmiotów,
+ * tekstury z modeli), wyliczane z overrides przy "Zastosuj".
  */
 public final class MixConfig {
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     private static MixConfig instance = new MixConfig();
 
     public Map<String, String> overrides = new LinkedHashMap<>();
+    public Map<String, String> derived = new LinkedHashMap<>();
+    public String activeProfile = "";
 
     public static MixConfig get() {
         return instance;
     }
 
+    /** Wybory użytkownika + pliki towarzyszące (wybory użytkownika mają pierwszeństwo). */
     public Map<String, String> snapshot() {
-        return new LinkedHashMap<>(overrides);
+        Map<String, String> m = new LinkedHashMap<>(derived);
+        m.putAll(overrides);
+        return m;
     }
 
     private static Path file() {
@@ -40,7 +46,12 @@ public final class MixConfig {
             if (!Files.exists(p)) return;
             try (Reader r = Files.newBufferedReader(p)) {
                 MixConfig c = GSON.fromJson(r, MixConfig.class);
-                if (c != null && c.overrides != null) instance = c;
+                if (c != null) {
+                    if (c.overrides == null) c.overrides = new LinkedHashMap<>();
+                    if (c.derived == null) c.derived = new LinkedHashMap<>();
+                    if (c.activeProfile == null) c.activeProfile = "";
+                    instance = c;
+                }
             }
         } catch (Exception e) {
             PackMixerClient.LOGGER.warn("Nie udało się wczytać mix.json: {}", e.toString());
