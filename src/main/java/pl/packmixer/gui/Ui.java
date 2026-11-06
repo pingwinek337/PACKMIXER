@@ -3,21 +3,24 @@ package pl.packmixer.gui;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.render.RenderLayer;
 
-/** Paleta kolorów i drobne helpery do rysowania ładnego, ciemnego GUI. */
+/** Paleta, półprzezroczyste panele z zaokrąglonymi rogami i drobne helpery do rysowania. */
 public final class Ui {
     public static final int BG_TOP = 0xFF0B0E14;
     public static final int BG_BOTTOM = 0xFF161C2B;
-    public static final int PANEL = 0xFF171D2B;
-    public static final int CARD = 0xFF212A3E;
-    public static final int CARD_HOVER = 0xFF2A3550;
-    public static final int CARD_SELECTED = 0xFF2D3B66;
-    public static final int ACCENT = 0xFF5B8CFF;
+    public static final int PANEL = 0xFF10151F;
+    public static final int CARD = 0xFF1B2335;
+    public static final int CARD_HOVER = 0xFF27324D;
+    public static final int CARD_SELECTED = 0xFF2C3A66;
+    public static final int ACCENT = 0xFF6A8DFF;
     public static final int GOOD = 0xFF3DDC97;
     public static final int DANGER = 0xFFE5566A;
     public static final int WARN = 0xFFFFC857;
-    public static final int TEXT = 0xFFE8ECF5;
+    public static final int TEXT = 0xFFEEF1FA;
     public static final int MUTED = 0xFF8D98B0;
-    public static final int BORDER = 0xFF2E3850;
+    public static final int BORDER = 0xFF39445F;
+
+    /** 0.25 - 1.0: jak bardzo panele zasłaniają grę (ustawiane suwakiem w stopce). */
+    public static float opacity = 0.75f;
 
     private static final int[] PALETTE = {
             0xFF5B8CFF, 0xFF3DDC97, 0xFFFFC857, 0xFFFF7A59, 0xFFB57BFF, 0xFF4FD1E8, 0xFFFF6FB5, 0xFF9BDB4D
@@ -25,19 +28,70 @@ public final class Ui {
 
     private Ui() {}
 
-    /** Prostokąt z lekko zaokrąglonymi rogami. */
-    public static void round(DrawContext c, int x, int y, int w, int h, int color) {
-        if (w < 3 || h < 3) {
+    /** Skaluje przezroczystość kolorów, które są w pełni kryjące (kolory już półprzezroczyste zostają bez zmian). */
+    public static int fade(int argb) {
+        int a = argb >>> 24;
+        if (a < 0xF0) return argb;
+        int na = Math.max(0x30, Math.round(a * opacity));
+        return (na << 24) | (argb & 0xFFFFFF);
+    }
+
+    private static int fadeBorder(int argb) {
+        int a = argb >>> 24;
+        if (a < 0xF0) return argb;
+        int na = Math.round(a * Math.min(1f, opacity + 0.3f));
+        return (na << 24) | (argb & 0xFFFFFF);
+    }
+
+    /** Wypełnia zaokrąglony prostokąt bez nakładających się obszarów (ważne przy przezroczystości). */
+    private static void fillRounded(DrawContext c, int x, int y, int w, int h, int color) {
+        if (w <= 0 || h <= 0) return;
+        if (w < 6 || h < 6) {
             c.fill(x, y, x + w, y + h, color);
-            return;
+        } else if (w >= 14 && h >= 14) {
+            c.fill(x + 2, y, x + w - 2, y + 1, color);
+            c.fill(x + 1, y + 1, x + w - 1, y + 2, color);
+            c.fill(x, y + 2, x + w, y + h - 2, color);
+            c.fill(x + 1, y + h - 2, x + w - 1, y + h - 1, color);
+            c.fill(x + 2, y + h - 1, x + w - 2, y + h, color);
+        } else {
+            c.fill(x + 1, y, x + w - 1, y + 1, color);
+            c.fill(x, y + 1, x + w, y + h - 1, color);
+            c.fill(x + 1, y + h - 1, x + w - 1, y + h, color);
         }
-        c.fill(x + 1, y, x + w - 1, y + h, color);
-        c.fill(x, y + 1, x + w, y + h - 1, color);
+    }
+
+    /** Zaokrąglony prostokąt, półprzezroczysty zgodnie z suwakiem. */
+    public static void round(DrawContext c, int x, int y, int w, int h, int color) {
+        fillRounded(c, x, y, w, h, fade(color));
+        if (w >= 14 && h >= 14) c.fill(x + 2, y + 1, x + w - 2, y + 2, 0x14FFFFFF); // delikatny blask u góry
+    }
+
+    /** Zaokrąglony prostokąt zawsze w pełni kryjący (np. pod miniaturami tekstur). */
+    public static void roundSolid(DrawContext c, int x, int y, int w, int h, int color) {
+        fillRounded(c, x, y, w, h, color);
     }
 
     public static void outlined(DrawContext c, int x, int y, int w, int h, int fill, int border) {
-        round(c, x, y, w, h, border);
-        round(c, x + 1, y + 1, w - 2, h - 2, fill);
+        fillRounded(c, x, y, w, h, fade(fill));
+        if (w >= 14 && h >= 14) c.fill(x + 2, y + 1, x + w - 2, y + 2, 0x10FFFFFF);
+        int bc = fadeBorder(border);
+        if (w < 6 || h < 6) return;
+        c.fill(x + 2, y, x + w - 2, y + 1, bc);
+        c.fill(x + 2, y + h - 1, x + w - 2, y + h, bc);
+        c.fill(x, y + 2, x + 1, y + h - 2, bc);
+        c.fill(x + w - 1, y + 2, x + w, y + h - 2, bc);
+        c.fill(x + 1, y + 1, x + 2, y + 2, bc);
+        c.fill(x + w - 2, y + 1, x + w - 1, y + 2, bc);
+        c.fill(x + 1, y + h - 2, x + 2, y + h - 1, bc);
+        c.fill(x + w - 2, y + h - 2, x + w - 1, y + h - 1, bc);
+    }
+
+    /** Cień pod elementem: tylko pasek pod dolną krawędzią, żeby nie przyciemniał przezroczystego wnętrza. */
+    public static void shadow(DrawContext c, int x, int y, int w, int h) {
+        if (w < 8) return;
+        c.fill(x + 3, y + h, x + w - 3, y + h + 1, 0x38000000);
+        c.fill(x + 5, y + h + 1, x + w - 5, y + h + 2, 0x20000000);
     }
 
     public static int lighten(int argb, int amount) {
@@ -56,7 +110,7 @@ public final class Ui {
         return mx >= x && mx < x + w && my >= y && my < y + h;
     }
 
-    /** Szachownica pod miniaturą, żeby było widać przezroczystość. */
+    /** Szachownica pod miniaturą, żeby było widać przezroczystość tekstury (zawsze kryjąca). */
     public static void checker(DrawContext c, int x, int y, int size) {
         c.fill(x, y, x + size, y + size, 0xFF1B2030);
         int cell = Math.max(8, size / 4);
@@ -86,11 +140,11 @@ public final class Ui {
 
     public static void scrollbar(DrawContext c, int x, int y, int h, int scroll, int max, int viewH) {
         if (max <= 0) return;
-        c.fill(x, y, x + 4, y + h, 0xFF121722);
+        c.fill(x + 1, y, x + 3, y + h, 0x30000000);
         int total = max + viewH;
         int thumb = Math.max(16, (int) ((long) h * viewH / total));
         int ty = y + (int) ((long) (h - thumb) * scroll / max);
-        round(c, x, ty, 4, thumb, ACCENT);
+        c.fill(x + 1, ty, x + 3, ty + thumb, 0xC06A8DFF);
     }
 
     /** Płynne przewijanie: cel i wartość bieżąca dążąca do celu. */

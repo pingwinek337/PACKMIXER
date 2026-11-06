@@ -27,6 +27,7 @@ public class LicenseScreen extends Screen {
     public LicenseScreen(Screen parent, Runnable onSuccess) {
         super(Text.literal("Licencja"));
         this.parent = parent;
+        Ui.opacity = pl.packmixer.config.MixConfig.get().uiOpacity;
         this.onSuccess = onSuccess;
     }
 
@@ -41,9 +42,11 @@ public class LicenseScreen extends Screen {
         setInitialFocus(keyField);
     }
 
+    private boolean allowBackground;
+
     @Override
     public void renderBackground(DrawContext context, int mouseX, int mouseY, float delta) {
-        // własne tło rysujemy w render()
+        if (allowBackground) super.renderBackground(context, mouseX, mouseY, delta);
     }
 
     @Override
@@ -51,7 +54,11 @@ public class LicenseScreen extends Screen {
         mx = mouseX;
         my = mouseY;
         hits.clear();
-        ctx.fillGradient(0, 0, width, height, Ui.BG_TOP, Ui.BG_BOTTOM);
+        allowBackground = true;
+        renderBackground(ctx, mouseX, mouseY, delta);
+        allowBackground = false;
+        int tint = (int) (40 + 110 * Ui.opacity);
+        ctx.fillGradient(0, 0, width, height, ((tint / 2) << 24) | 0x070A12, (tint << 24) | 0x121A2C);
 
         int cw = Math.min(440, width - 30);
         int ch = 226;

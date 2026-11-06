@@ -66,6 +66,11 @@ public class PackMixerScreen extends Screen {
     private boolean unsaved;
     private boolean applying;
     private long resetArmedUntil;
+    private boolean dragOpacity;
+    private int opX;
+    private int opY;
+    private int opW = 110;
+    private int statusLimit = 300;
 
     private final Ui.SmoothScroll packScroll = new Ui.SmoothScroll();
     private final Ui.SmoothScroll listScroll = new Ui.SmoothScroll();
@@ -96,6 +101,7 @@ public class PackMixerScreen extends Screen {
     public PackMixerScreen(Screen parent) {
         super(Text.literal("Pack Mixer"));
         this.parent = parent;
+        Ui.opacity = MixConfig.get().uiOpacity;
         this.index = PackIndex.obtain(net.minecraft.client.MinecraftClient.getInstance().getResourcePackManager());
     }
 
@@ -156,9 +162,12 @@ public class PackMixerScreen extends Screen {
         client.setScreen(parent);
     }
 
+    /** Tło (rozmyta gra lub panorama) rysujemy tylko raz, na początku render(); drugie wywołanie z super.render() pomijamy. */
+    private boolean allowBackground;
+
     @Override
     public void renderBackground(DrawContext context, int mouseX, int mouseY, float delta) {
-        // własne tło w render()
+        if (allowBackground) super.renderBackground(context, mouseX, mouseY, delta);
     }
 
     // ------------------------------------------------------------------ helpers
@@ -202,7 +211,7 @@ public class PackMixerScreen extends Screen {
     private void button(DrawContext ctx, int x, int y, int w, int h, String label, int color, boolean enabled, String tip, Runnable r) {
         boolean hov = enabled && hover(x, y, w, h);
         int bg = !enabled ? 0xFF262B38 : hov ? Ui.lighten(color, 0x20) : color;
-        Ui.round(ctx, x, y + 1, w, h, 0x30000000);
+        Ui.shadow(ctx, x, y, w, h);
         Ui.round(ctx, x, y, w, h, bg);
         ctx.drawCenteredTextWithShadow(textRenderer, textRenderer.trimToWidth(label, w - 6), x + w / 2, y + (h - 8) / 2, enabled ? 0xFFFFFFFF : 0xFF77809A);
         if (enabled) hit(x, y, w, h, r);
@@ -331,7 +340,11 @@ public class PackMixerScreen extends Screen {
             statsDirty = false;
         }
 
-        ctx.fillGradient(0, 0, width, height, Ui.BG_TOP, Ui.BG_BOTTOM);
+        allowBackground = true;
+        renderBackground(ctx, mouseX, mouseY, delta);
+        allowBackground = false;
+        int tint = (int) (40 + 110 * Ui.opacity);
+        ctx.fillGradient(0, 0, width, height, ((tint / 2) << 24) | 0x070A12, (tint << 24) | 0x121A2C);
         drawHeader(ctx);
         drawSidebar(ctx);
         drawSectionTitle(ctx);
@@ -355,7 +368,7 @@ public class PackMixerScreen extends Screen {
     // ---------------------------------------------------------------- nagłówek
 
     private void drawHeader(DrawContext ctx) {
-        ctx.fill(0, 0, width, 40, 0xFF0D1118);
+        ctx.fillGradient(0, 0, width, 40, Ui.fade(0xFF131B2E), Ui.fade(0xFF0B0F18));
         ctx.fill(0, 40, width, 41, Ui.BORDER);
         ctx.fill(L, 10, L + 3, 30, Ui.ACCENT);
         scaledText(ctx, "PACK MIXER", L + 10, 11, 1.6f, Ui.TEXT);
@@ -505,7 +518,7 @@ public class PackMixerScreen extends Screen {
 
     private void drawPackCard(DrawContext ctx, Source s, int x, int y, int w, int h) {
         boolean hov = hover(x, y, w, h);
-        Ui.round(ctx, x, y + 2, w, h, 0x40000000);
+        Ui.shadow(ctx, x, y, w, h);
         Ui.round(ctx, x, y, w, h, hov ? Ui.CARD_HOVER : Ui.CARD);
         int pc = Ui.packColor(s.id);
         ctx.fill(x, y + 5, x + 3, y + h - 5, pc);
@@ -679,7 +692,7 @@ public class PackMixerScreen extends Screen {
         Source src = auto ? effective(key) : index.byId(packId);
         if (auto && work.containsKey(key)) src = index.autoSource(key, enabledIds);
 
-        Ui.round(ctx, x, y + 2, w, h, 0x40000000);
+        Ui.shadow(ctx, x, y, w, h);
         if (chosen) Ui.outlined(ctx, x, y, w, h, hov ? Ui.CARD_HOVER : Ui.CARD, Ui.ACCENT);
         else Ui.round(ctx, x, y, w, h, hov ? Ui.CARD_HOVER : Ui.CARD);
 
@@ -687,7 +700,7 @@ public class PackMixerScreen extends Screen {
         boolean cube = preview3d && isBlock(key) && src != null;
         TexCache.Thumb th = null;
         if (cube) {
-            Ui.round(ctx, tx, y + 12, 64, 64, 0xFF141927);
+            Ui.roundSolid(ctx, tx, y + 12, 64, 64, 0xFF141927);
             drawCube(ctx, src, key, tx + 32, y + 15, 58);
         } else {
             Ui.checker(ctx, tx, y + 12, 64);
@@ -872,7 +885,7 @@ public class PackMixerScreen extends Screen {
         boolean active = name.equals(activeProfile);
         ProfileStore.Profile p = ProfileStore.get(name);
         int count = p == null ? 0 : p.overrides.size();
-        Ui.round(ctx, x, y + 2, w, h, 0x40000000);
+        Ui.shadow(ctx, x, y, w, h);
         Ui.round(ctx, x, y, w, h, hover(x, y, w, h) ? Ui.CARD_HOVER : Ui.CARD);
         ctx.fill(x, y + 5, x + 3, y + h - 5, active ? Ui.GOOD : Ui.ACCENT);
 
@@ -1030,7 +1043,7 @@ public class PackMixerScreen extends Screen {
 
     private void drawFooter(DrawContext ctx) {
         int fy = cBot + 8;
-        ctx.fill(0, fy, width, height, 0xFF0D1118);
+        ctx.fillGradient(0, fy, width, height, Ui.fade(0xFF0E1320), Ui.fade(0xFF0A0E16));
         ctx.fill(0, fy, width, fy + 1, Ui.BORDER);
 
         int by = fy + 8;
@@ -1050,8 +1063,23 @@ public class PackMixerScreen extends Screen {
         bx -= 8 + 90;
         button(ctx, bx, by, 90, 22, "Zamknij", Ui.CARD_HOVER, true, null, this::close);
 
+        // suwak przezroczystości paneli
+        String opLabel = "Przezroczystość";
+        int lw = textRenderer.getWidth(opLabel);
+        opW = 110;
+        opX = bx - 16 - opW;
+        opY = by + 4;
+        ctx.drawText(textRenderer, opLabel, opX - lw - 8, by + 7, Ui.MUTED, false);
+        float t = (Ui.opacity - 0.25f) / 0.75f;
+        ctx.fill(opX, opY + 6, opX + opW, opY + 9, 0x66000000);
+        ctx.fill(opX, opY + 6, opX + Math.round(opW * t), opY + 9, Ui.ACCENT);
+        int kx = opX + Math.round((opW - 4) * t);
+        boolean opHover = dragOpacity || Ui.in(mx, my, opX - 3, opY, opW + 6, 14);
+        ctx.fill(kx, opY + 2, kx + 4, opY + 13, opHover ? 0xFFFFFFFF : 0xFFD5DCF0);
+        statusLimit = opX - lw - 8 - 14 - L;
+
         if (now < statusUntil) {
-            ctx.drawText(textRenderer, textRenderer.trimToWidth(statusMsg, bx - L - 10), L, by + 7, Ui.GOOD, false);
+            ctx.drawText(textRenderer, textRenderer.trimToWidth(statusMsg, Math.max(60, statusLimit)), L, by + 7, Ui.GOOD, false);
         } else if (unsaved) {
             ctx.drawText(textRenderer, "Niezastosowane zmiany", L, by + 7, Ui.WARN, false);
         } else {
@@ -1111,6 +1139,11 @@ public class PackMixerScreen extends Screen {
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        if (button == 0 && Ui.in((int) Math.floor(mouseX), (int) Math.floor(mouseY), opX - 3, opY, opW + 6, 14)) {
+            dragOpacity = true;
+            setOpacityFromMouse(mouseX);
+            return true;
+        }
         if (section == Section.PAINT && painter.mouseClicked(mouseX, mouseY, button)) return true;
         if (button == 0) {
             int x = (int) Math.floor(mouseX);
@@ -1129,6 +1162,10 @@ public class PackMixerScreen extends Screen {
 
     @Override
     public boolean mouseDragged(double mouseX, double mouseY, int button, double deltaX, double deltaY) {
+        if (dragOpacity) {
+            setOpacityFromMouse(mouseX);
+            return true;
+        }
         if (section == Section.PAINT && painter.mouseDragged(mouseX, mouseY)) return true;
         return super.mouseDragged(mouseX, mouseY, button, deltaX, deltaY);
     }
@@ -1136,7 +1173,17 @@ public class PackMixerScreen extends Screen {
     @Override
     public boolean mouseReleased(double mouseX, double mouseY, int button) {
         if (painter != null) painter.mouseReleased();
+        if (dragOpacity) {
+            dragOpacity = false;
+            MixConfig.save();
+        }
         return super.mouseReleased(mouseX, mouseY, button);
+    }
+
+    private void setOpacityFromMouse(double mouseX) {
+        float t = (float) Math.max(0, Math.min(1, (mouseX - opX) / (double) (opW - 1)));
+        Ui.opacity = 0.25f + 0.75f * t;
+        MixConfig.get().uiOpacity = Ui.opacity;
     }
 
     @Override

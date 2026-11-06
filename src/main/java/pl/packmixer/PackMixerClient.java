@@ -18,7 +18,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import pl.packmixer.config.MixConfig;
 import pl.packmixer.config.ProfileStore;
-import pl.packmixer.config.ProfileStore;
 import pl.packmixer.gui.LicenseScreen;
 import pl.packmixer.gui.PackMixerScreen;
 import pl.packmixer.license.LicenseManager;
@@ -32,7 +31,6 @@ public class PackMixerClient implements ClientModInitializer {
     @Override
     public void onInitializeClient() {
         MixConfig.load();
-        ProfileStore.load();
         ProfileStore.load();
         LicenseManager.init();
 

@@ -24,6 +24,8 @@ public final class MixConfig {
     public Map<String, String> overrides = new LinkedHashMap<>();
     public Map<String, String> derived = new LinkedHashMap<>();
     public String activeProfile = "";
+    /** Przezroczystość paneli GUI (0.25 - 1.0). */
+    public float uiOpacity = 0.75f;
 
     public static MixConfig get() {
         return instance;
@@ -50,6 +52,7 @@ public final class MixConfig {
                     if (c.overrides == null) c.overrides = new LinkedHashMap<>();
                     if (c.derived == null) c.derived = new LinkedHashMap<>();
                     if (c.activeProfile == null) c.activeProfile = "";
+                    if (c.uiOpacity < 0.25f || c.uiOpacity > 1f) c.uiOpacity = 0.75f;
                     instance = c;
                 }
             }
